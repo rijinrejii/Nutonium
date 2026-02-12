@@ -1,0 +1,54 @@
+{
+  "project_info": {
+    "project_number": "663177712483",
+    "project_id": "network-27f13",
+    "storage_bucket": "network-27f13.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:663177712483:android:aaace92f69f75f13db3956",
+        "android_client_info": {
+          "package_name": "com.example.nutonium"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "663177712483-lkllubkitftt2oqnfnkrjfi44n739tbi.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.nutonium",
+            "certificate_hash": "ad639ab8c5f8646fe0f0a123235905ea52eae320"
+          }
+        },
+        {
+          "client_id": "663177712483-jihg2j1fcogm5phbc1ketn382rtrcttv.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDOeuGtWWsM4KJxSUF3gDmYgE2yEw1dytw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "663177712483-jihg2j1fcogm5phbc1ketn382rtrcttv.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "663177712483-sntij9bu5lh4o0t593oti0p4156gdf6p.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.nutonium"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -1,0 +1,39 @@
+name: nutonium
+description: "A new Flutter project."
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.10.7
+
+dependencies:
+  flutter:
+    sdk: flutter
+  # Compatible 2026 Firebase Suite
+  firebase_core: ^4.3.0
+  firebase_auth: ^6.1.3
+  cloud_firestore: ^6.1.1
+  google_sign_in: ^6.2.1
+  cupertino_icons: ^1.0.8
+  pinput: ^5.0.0
+  image_picker: ^1.1.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+  flutter_launcher_icons: ^0.14.4
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: assets/icons/app_icon.jpg
+  adaptive_icon_background: "#D8EA45"
+  adaptive_icon_foreground: assets/icons/app_icon.jpg
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/images/google_logo.png
+    - assets/icons/app_icon.jpg

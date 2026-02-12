@@ -1,0 +1,69 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    function accountOwner(accountId) {
+      return isSignedIn() &&
+        get(/databases/$(database)/documents/billing_accounts/$(accountId)).data.ownerUid == request.auth.uid;
+    }
+
+    match /users/{uid} {
+      allow read, write: if isOwner(uid);
+    }
+
+    match /retailers/{uid} {
+      allow read, write: if isOwner(uid);
+    }
+
+    match /wholesalers/{uid} {
+      allow read, write: if isOwner(uid);
+    }
+
+    match /billing_accounts/{accountId} {
+      allow create: if isSignedIn() && request.resource.data.ownerUid == request.auth.uid;
+      allow read, update, delete: if accountOwner(accountId);
+    }
+
+    match /customers/{customerId} {
+      allow create: if accountOwner(request.resource.data.accountId);
+      allow read, update, delete: if accountOwner(resource.data.accountId);
+    }
+
+    match /products/{productId} {
+      allow create: if accountOwner(request.resource.data.accountId);
+      allow read, update, delete: if accountOwner(resource.data.accountId);
+    }
+
+    match /invoices/{invoiceId} {
+      allow create: if accountOwner(request.resource.data.accountId);
+      allow read, update, delete: if accountOwner(resource.data.accountId);
+
+      match /items/{itemId} {
+        allow create, read, update, delete:
+          if accountOwner(get(/databases/$(database)/documents/invoices/$(invoiceId)).data.accountId);
+      }
+    }
+
+    match /payments/{paymentId} {
+      allow create: if accountOwner(request.resource.data.accountId);
+      allow read, update, delete: if accountOwner(resource.data.accountId);
+    }
+
+    match /invoice_counters/{accountId}/shards/{shardId} {
+      allow read, write: if accountOwner(accountId);
+    }
+
+    match /billing_dashboard_daily/{docId} {
+      allow read: if isSignedIn();
+      allow write: if false; // only server functions should write
+    }
+  }
+}
