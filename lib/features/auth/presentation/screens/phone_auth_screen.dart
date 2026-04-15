@@ -83,13 +83,10 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
         },
         codeSent: (String verificationId, int? resendToken) {
           setState(() => _isLoading = false);
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => OTPVerificationScreen(
-                verificationId: verificationId,
-                phoneNumber: phoneNumber,
-                role: widget.role,
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'OTP was sent, but the phone OTP verification screen is not wired correctly yet. Please use email/Google auth for now.',
               ),
             ),
           );

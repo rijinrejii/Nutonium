@@ -1,77 +1,89 @@
 import 'package:flutter/material.dart';
-import '../../../icons/social_icon.dart';
+
+import '../../../core/theme/app_theme.dart';
 import '../../../icons/cart_icon.dart';
 import '../../../icons/map_icon.dart';
 import '../../../icons/profile_icon.dart';
+import '../../../icons/social_icon.dart';
 
 class CustomBottomNavigation extends StatelessWidget {
-  final int currentIndex;
-  final Function(int) onTap;
-
   const CustomBottomNavigation({
     super.key,
     required this.currentIndex,
     required this.onTap,
+    required this.cartCount,
   });
+
+  final int currentIndex;
+  final ValueChanged<int> onTap;
+  final int cartCount;
 
   @override
   Widget build(BuildContext context) {
-    final inactiveColor = Colors.white.withOpacity(0.5);
-    const activeColor = Colors.white;
-
     return Container(
+      margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        color: const Color(0xFF6C63FF),
+        color: AppPalette.forestDeep,
+        borderRadius: BorderRadius.circular(28),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 8,
-            offset: const Offset(0, -2),
+            color: AppPalette.forest.withValues(alpha: 0.18),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
           ),
         ],
       ),
       child: SafeArea(
         top: false,
-        child: Container(
-          height: 65,
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              _NavItem(
+        child: Row(
+          children: [
+            Expanded(
+              child: _NavItem(
+                label: 'Market',
                 icon: SocialIcon(
-                  size: 26,
-                  color: currentIndex == 0 ? activeColor : inactiveColor,
+                  size: 22,
+                  color: currentIndex == 0 ? Colors.white : Colors.white70,
                 ),
-                isActive: currentIndex == 0,
+                selected: currentIndex == 0,
                 onTap: () => onTap(0),
               ),
-              _NavItem(
+            ),
+            Expanded(
+              child: _NavItem(
+                label: 'Cart',
+                badgeCount: cartCount,
                 icon: CartIcon(
-                  size: 26,
-                  color: currentIndex == 1 ? activeColor : inactiveColor,
+                  size: 22,
+                  color: currentIndex == 1 ? Colors.white : Colors.white70,
                 ),
-                isActive: currentIndex == 1,
+                selected: currentIndex == 1,
                 onTap: () => onTap(1),
               ),
-              _NavItem(
+            ),
+            Expanded(
+              child: _NavItem(
+                label: 'Map',
                 icon: MapIcon(
-                  size: 26,
-                  color: currentIndex == 2 ? activeColor : inactiveColor,
+                  size: 22,
+                  color: currentIndex == 2 ? Colors.white : Colors.white70,
                 ),
-                isActive: currentIndex == 2,
+                selected: currentIndex == 2,
                 onTap: () => onTap(2),
               ),
-              _NavItem(
+            ),
+            Expanded(
+              child: _NavItem(
+                label: 'Profile',
                 icon: ProfileIcon(
-                  size: 26,
-                  color: currentIndex == 3 ? activeColor : inactiveColor,
+                  size: 22,
+                  color: currentIndex == 3 ? Colors.white : Colors.white70,
                 ),
-                isActive: currentIndex == 3,
+                selected: currentIndex == 3,
                 onTap: () => onTap(3),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -79,35 +91,77 @@ class CustomBottomNavigation extends StatelessWidget {
 }
 
 class _NavItem extends StatelessWidget {
-  final Widget icon;
-  final bool isActive;
-  final VoidCallback onTap;
-
   const _NavItem({
+    required this.label,
     required this.icon,
-    required this.isActive,
+    required this.selected,
     required this.onTap,
+    this.badgeCount = 0,
   });
+
+  final String label;
+  final Widget icon;
+  final bool selected;
+  final VoidCallback onTap;
+  final int badgeCount;
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    final background = selected
+        ? Colors.white.withValues(alpha: 0.12)
+        : Colors.transparent;
+    final textColor = selected ? Colors.white : Colors.white70;
+
+    return InkWell(
       onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: Container(
-        width: 60,
-        height: 60,
-        alignment: Alignment.center,
+      borderRadius: BorderRadius.circular(22),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 220),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
         decoration: BoxDecoration(
-          color: isActive 
-              ? Colors.white.withOpacity(0.15)
-              : Colors.transparent,
-          borderRadius: BorderRadius.circular(12),
+          color: background,
+          borderRadius: BorderRadius.circular(22),
         ),
-        child: AnimatedScale(
-          scale: isActive ? 1.0 : 0.9,
-          duration: const Duration(milliseconds: 200),
-          child: icon,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Stack(
+              clipBehavior: Clip.none,
+              children: [
+                icon,
+                if (badgeCount > 0)
+                  Positioned(
+                    right: -10,
+                    top: -8,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 5,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppPalette.brass,
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: Text(
+                        badgeCount > 9 ? '9+' : '$badgeCount',
+                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                          color: AppPalette.ink,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Text(
+              label,
+              style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                color: textColor,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
         ),
       ),
     );

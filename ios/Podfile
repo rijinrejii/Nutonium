@@ -5,22 +5,22 @@ platform :ios, '15.0'
 ENV['COCOAPODS_DISABLE_STATS'] = 'true'
 
 project 'Runner', {
-  'Debug' => :debug,
-  'Profile' => :release,
-  'Release' => :release,
+ 'Debug' => :debug,
+ 'Profile' => :release,
+ 'Release' => :release,
 }
 
 def flutter_root
-  generated_xcode_build_settings_path = File.expand_path(File.join('..', 'Flutter', 'Generated.xcconfig'), __FILE__)
-  unless File.exist?(generated_xcode_build_settings_path)
-    raise "#{generated_xcode_build_settings_path} must exist. If you're running pod install manually, make sure flutter pub get is executed first"
-  end
+ generated_xcode_build_settings_path = File.expand_path(File.join('..', 'Flutter', 'Generated.xcconfig'), __FILE__)
+ unless File.exist?(generated_xcode_build_settings_path)
+ raise "#{generated_xcode_build_settings_path} must exist. If you're running pod install manually, make sure flutter pub get is executed first"
+ end
 
-  File.foreach(generated_xcode_build_settings_path) do |line|
-    matches = line.match(/FLUTTER_ROOT\=(.*)/)
-    return matches[1].strip if matches
-  end
-  raise "FLUTTER_ROOT not found in #{generated_xcode_build_settings_path}. Try deleting Generated.xcconfig, then run flutter pub get"
+ File.foreach(generated_xcode_build_settings_path) do |line|
+ matches = line.match(/FLUTTER_ROOT\=(.*)/)
+ return matches[1].strip if matches
+ end
+ raise "FLUTTER_ROOT not found in #{generated_xcode_build_settings_path}. Try deleting Generated.xcconfig, then run flutter pub get"
 end
 
 require File.expand_path(File.join('packages', 'flutter_tools', 'bin', 'podhelper'), flutter_root)
@@ -28,16 +28,44 @@ require File.expand_path(File.join('packages', 'flutter_tools', 'bin', 'podhelpe
 flutter_ios_podfile_setup
 
 target 'Runner' do
-  use_frameworks!
+ use_frameworks!
 
-  flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
-  target 'RunnerTests' do
-    inherit! :search_paths
-  end
+ flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
+
+ # Add Fir
+
+ target 'RunnerTests' do
+ inherit! :search_paths
+ end
 end
 
 post_install do |installer|
-  installer.pods_project.targets.each do |target|
-    flutter_additional_ios_build_settings(target)
-  end
+ installer.pods_project.targets.each do |target|
+ flutter_additional_ios_build_settings(target)
+ target.build_configurations.each do |config|
+ config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.0'
+ if config.name == 'Debug'
+ config.build_settings['ONLY_ACTIVE_ARCH'] = 'YES'
+ end
+ end
+ end
+
+ # Patch 1: Strip -G from all xcconfig files
+ Dir.glob(File.join(installer.sandbox.root, '**', '*.xcconfig')).each do |path|
+ content = File.read(path)
+ if content.include?('-G')
+ File.write(path, content.gsub(/ -G(?=[ \t\n"]|$)/, ''))
+ puts "Patched xcconfig: #{File.basename(path)}"
+ end
+ end
+
+ # Patch 2: Strip -G from the Pods .pbxproj file
+ pbxproj_path = File.join(installer.pods_project.path, 'project.pbxproj')
+ if File.exist?(pbxproj_path)
+ content = File.read(pbxproj_path)
+ if content.include?('-G')
+ File.write(pbxproj_path, content.gsub(/ -G(?=[ \t\n"\\,]|$)/, ''))
+ puts "Patched pbxproj"
+ end
+ end
 end

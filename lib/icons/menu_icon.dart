@@ -4,11 +4,7 @@ class MenuIcon extends StatelessWidget {
   final double size;
   final Color color;
 
-  const MenuIcon({
-    super.key,
-    this.size = 28,
-    this.color = Colors.white,
-  });
+  const MenuIcon({super.key, this.size = 28, this.color = Colors.white});
 
   @override
   Widget build(BuildContext context) {
@@ -47,8 +43,6 @@ class _MenuIconPainter extends CustomPainter {
     final lineWidth = size.width * 0.4;
     final lineHeight = size.width * 0.08;
     final centerX = size.width / 2;
-    final spacing = size.height * 0.12;
-
     // First line
     final line1 = RRect.fromRectAndRadius(
       Rect.fromCenter(

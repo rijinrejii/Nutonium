@@ -1,271 +1,269 @@
 import 'package:flutter/material.dart';
-import '../../../../core/constants/app_constants.dart';
-import 'phone_auth_screen.dart';
-import 'google_auth_screen.dart';
+import '../../data/usecases/google_sign_in_usecase.dart';
 
-class RoleSelectionScreen extends StatefulWidget {
-  const RoleSelectionScreen({super.key});
-
-  @override
-  State<RoleSelectionScreen> createState() => _RoleSelectionScreenState();
-}
-
-class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
-  UserRole? _selectedRole;
-
-  void _navigateToAuth() {
-    if (_selectedRole == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please select your role to continue'),
-          backgroundColor: Colors.orange,
-        ),
-      );
-      return;
-    }
-
-    if (_selectedRole == UserRole.customer) {
-      // Navigate to Google Sign In
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => const GoogleAuthScreen(),
-        ),
-      );
-    } else {
-      // Navigate to Phone Auth
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => PhoneAuthScreen(role: _selectedRole!),
-        ),
-      );
-    }
-  }
+class RoleSelectionScreen extends StatelessWidget {
+  const RoleSelectionScreen({Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              Theme.of(context).colorScheme.primary.withOpacity(0.1),
-              Theme.of(context).colorScheme.secondary.withOpacity(0.1),
+        decoration: const BoxDecoration(
+          color: Color(0xFFF9F7F2),
+        ),
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              CircleAvatar(
+                radius: 45.0,
+                backgroundColor: Colors.green.shade800,
+                child: const Icon(
+                  Icons.store,
+                  size: 50.0,
+                  color: Colors.white,
+                ),
+              ),
+              const SizedBox(height: 20),
+              const Text(
+                "Welcome to Nutonium",
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black,
+                ),
+              ),
+              const SizedBox(height: 10),
+              const Text(
+                "Select how you want to join",
+                style: TextStyle(
+                  fontSize: 16,
+                  color: Colors.grey,
+                ),
+              ),
+              const SizedBox(height: 30),
+              RoleOption(
+                title: "Customer",
+                subtitle: "Shop and discover products",
+                icon: Icons.shopping_bag,
+                onTap: () => navigateToSignIn(context, "Customer"),
+              ),
+              const SizedBox(height: 10),
+              RoleOption(
+                title: "Retailer",
+                subtitle: "Sell products from your shop",
+                icon: Icons.store,
+                onTap: () => navigateToSignIn(context, "Retailer"),
+              ),
+              const SizedBox(height: 10),
+              RoleOption(
+                title: "Wholesaler/Startup",
+                subtitle: "Distribute products in bulk",
+                icon: Icons.apartment,
+                onTap: () => navigateToSignIn(context, "Wholesaler/Startup"),
+              ),
+              const SizedBox(height: 30),
+              ElevatedButton.icon(
+                onPressed: () async {
+                  final user = await GoogleSignInUseCase().execute();
+                  if (user != null) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Signed in as ${user.displayName}')),
+                    );
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Google sign-in failed.')),
+                    );
+                  }
+                },
+                icon: const Icon(Icons.g_mobiledata),
+                label: const Text("Sign in with Google"),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.grey.shade200,
+                  foregroundColor: Colors.black,
+                ),
+              )
             ],
           ),
         ),
-        child: SafeArea(
-          child: Center(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(24.0),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  // Logo
-                  Container(
-                    width: 120,
-                    height: 120,
-                    decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.primary,
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: Theme.of(context)
-                              .colorScheme
-                              .primary
-                              .withOpacity(0.3),
-                          blurRadius: 20,
-                          spreadRadius: 5,
-                        ),
-                      ],
-                    ),
-                    child: const Icon(
-                      Icons.storefront,
-                      size: 60,
-                      color: Colors.white,
-                    ),
-                  ),
-                  const SizedBox(height: 40),
+      ),
+    );
+  }
 
-                  // Title
-                  Text(
-                    'Welcome to Nutonium',
-                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: Theme.of(context).colorScheme.primary,
-                        ),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 12),
+  void navigateToSignIn(BuildContext context, String role) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => SignInScreen(role: role),
+      ),
+    );
+  }
+}
 
-                  // Subtitle
-                  Text(
-                    'Select how you want to join',
-                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                          color: Colors.grey[600],
-                        ),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 48),
+class RoleOption extends StatelessWidget {
+  final String title;
+  final String subtitle;
+  final IconData icon;
+  final VoidCallback onTap;
 
-                  // Role Selection Cards
-                  _RoleCard(
-                    icon: Icons.shopping_bag,
-                    title: 'Customer',
-                    description: 'Shop and discover products',
-                    isSelected: _selectedRole == UserRole.customer,
-                    onTap: () => setState(() => _selectedRole = UserRole.customer),
-                  ),
-                  const SizedBox(height: 16),
+  const RoleOption({
+    required this.title,
+    required this.subtitle,
+    required this.icon,
+    required this.onTap,
+    Key? key,
+  }) : super(key: key);
 
-                  _RoleCard(
-                    icon: Icons.store,
-                    title: 'Retailer',
-                    description: 'Sell products from your shop',
-                    isSelected: _selectedRole == UserRole.retailer,
-                    onTap: () => setState(() => _selectedRole = UserRole.retailer),
-                  ),
-                  const SizedBox(height: 16),
-
-                  _RoleCard(
-                    icon: Icons.business,
-                    title: 'Wholesaler/Startup',
-                    description: 'Distribute products in bulk',
-                    isSelected: _selectedRole == UserRole.wholesaler,
-                    onTap: () => setState(() => _selectedRole = UserRole.wholesaler),
-                  ),
-                  const SizedBox(height: 32),
-
-                  // Continue Button
-                  SizedBox(
-                    width: double.infinity,
-                    height: 56,
-                    child: ElevatedButton(
-                      onPressed: _navigateToAuth,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Theme.of(context).colorScheme.primary,
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        elevation: 2,
-                      ),
-                      child: const Text(
-                        'Continue',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(10),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 10,
+              offset: Offset(0, 5),
             ),
-          ),
+          ],
+        ),
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            Icon(
+              icon,
+              color: Colors.green.shade800,
+              size: 36,
+            ),
+            const SizedBox(width: 16),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  subtitle,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    color: Colors.grey,
+                  ),
+                ),
+              ],
+            ),
+          ],
         ),
       ),
     );
   }
 }
 
-class _RoleCard extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final String description;
-  final bool isSelected;
-  final VoidCallback onTap;
+class SignInScreen extends StatelessWidget {
+  final String role;
 
-  const _RoleCard({
-    required this.icon,
-    required this.title,
-    required this.description,
-    required this.isSelected,
-    required this.onTap,
-  });
+  const SignInScreen({required this.role, Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
-      child: Container(
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: isSelected
-                ? Theme.of(context).colorScheme.primary
-                : Colors.grey[300]!,
-            width: isSelected ? 2 : 1,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: isSelected
-                  ? Theme.of(context).colorScheme.primary.withOpacity(0.1)
-                  : Colors.black.withOpacity(0.05),
-              blurRadius: 10,
-              spreadRadius: 2,
-            ),
-          ],
+    return Scaffold(
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        elevation: 0,
+        leading: IconButton(
+          icon: Icon(Icons.arrow_back, color: Colors.green.shade800),
+          onPressed: () => Navigator.pop(context),
         ),
-        child: Row(
-          children: [
-            Container(
-              width: 56,
-              height: 56,
-              decoration: BoxDecoration(
-                color: isSelected
-                    ? Theme.of(context).colorScheme.primary.withOpacity(0.1)
-                    : Colors.grey[100],
-                borderRadius: BorderRadius.circular(12),
+      ),
+      body: Container(
+        decoration: const BoxDecoration(
+          color: Color(0xFFF9F7F2),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(20.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                role == "Customer"
+                    ? Icons.shopping_bag
+                    : role == "Retailer"
+                        ? Icons.store
+                        : Icons.apartment,
+                size: 70.0,
+                color: Colors.green.shade800,
               ),
-              child: Icon(
-                icon,
-                size: 28,
-                color: isSelected
-                    ? Theme.of(context).colorScheme.primary
-                    : Colors.grey[600],
+              const SizedBox(height: 20),
+              Text(
+                "$role Sign In",
+                style: const TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black,
+                ),
+                textAlign: TextAlign.center,
               ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                      color: isSelected
-                          ? Theme.of(context).colorScheme.primary
-                          : Colors.grey[800],
+              const SizedBox(height: 10),
+              const Text(
+                "Enter your credentials to continue",
+                style: TextStyle(
+                  fontSize: 16,
+                  color: Colors.grey,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 30),
+              if (role == "Customer") ...[
+                ElevatedButton.icon(
+                  onPressed: () async {
+                    final user = await GoogleSignInUseCase().execute();
+                    if (user != null) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Signed in as ${user.displayName}')),
+                      );
+                    } else {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Google sign-in failed.')),
+                      );
+                    }
+                  },
+                  icon: const Icon(Icons.g_mobiledata),
+                  label: const Text("Sign in with Google"),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.grey.shade200,
+                    foregroundColor: Colors.black,
+                  ),
+                )
+              ] else ...[
+                TextField(
+                  decoration: InputDecoration(
+                    labelText: "Phone Number",
+                    prefix: const Text("IN +91 "),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
                     ),
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    description,
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.grey[600],
-                    ),
+                ),
+                const SizedBox(height: 10),
+                ElevatedButton(
+                  onPressed: () {},
+                  child: const Text("Send OTP"),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.green.shade800,
+                    foregroundColor: Colors.white,
                   ),
-                ],
-              ),
-            ),
-            Icon(
-              isSelected ? Icons.check_circle : Icons.circle_outlined,
-              color: isSelected
-                  ? Theme.of(context).colorScheme.primary
-                  : Colors.grey[400],
-              size: 28,
-            ),
-          ],
+                ),
+              ]
+            ],
+          ),
         ),
       ),
     );

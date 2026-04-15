@@ -35,13 +35,13 @@ class RetailerProfileModel {
       shopName: json['shopName'] as String,
       shopCategories: List<String>.from(json['shopCategories'] as List),
       customCategory: json['customCategory'] as String?,
-      location: ShopLocationModel.fromJson(json['location'] as Map<String, dynamic>).toEntity(),
+      location:
+          ShopLocationModel.fromJson(json['location'] as Map<String, dynamic>)
+              .toEntity(),
       gstNumber: json['gstNumber'] as String?,
       businessLicense: json['businessLicense'] as String?,
-      createdAt: (json['createdAt'] as Timestamp).toDate(),
-      updatedAt: json['updatedAt'] != null
-          ? (json['updatedAt'] as Timestamp).toDate()
-          : null,
+      createdAt: _readDateTime(json['createdAt']),
+      updatedAt: _readNullableDateTime(json['updatedAt']),
     );
   }
 
@@ -73,5 +73,25 @@ class RetailerProfileModel {
       createdAt: createdAt,
       updatedAt: updatedAt,
     );
+  }
+
+  static DateTime _readDateTime(Object? value) {
+    if (value is Timestamp) {
+      return value.toDate();
+    }
+    if (value is DateTime) {
+      return value;
+    }
+    return DateTime.now();
+  }
+
+  static DateTime? _readNullableDateTime(Object? value) {
+    if (value is Timestamp) {
+      return value.toDate();
+    }
+    if (value is DateTime) {
+      return value;
+    }
+    return null;
   }
 }

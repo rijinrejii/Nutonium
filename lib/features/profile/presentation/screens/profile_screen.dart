@@ -3,13 +3,18 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../../../../core/constants/app_constants.dart';
+import '../../../../core/theme/app_theme.dart';
+import '../../../../icons/menu_icon.dart';
 import '../../../auth/domain/entities/user.dart' as app_user;
 import '../../domain/entities/retailer_profile.dart';
 import '../../domain/entities/shop_location.dart';
 import '../../domain/entities/wholesaler_profile.dart';
 
 class ProfileScreen extends StatefulWidget {
-  const ProfileScreen({super.key});
+  const ProfileScreen({super.key, this.onMenuPress});
+
+  /// Callback wired to the menu icon inside the profile header.
+  final VoidCallback? onMenuPress;
 
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
@@ -17,9 +22,34 @@ class ProfileScreen extends StatefulWidget {
 
 class _ProfileScreenState extends State<ProfileScreen> {
   bool _isLoading = true;
+  bool _isLoggingOut = false;
   app_user.User? _userData;
   RetailerProfile? _retailerProfile;
   WholesalerProfile? _wholesalerProfile;
+
+  // ── Firestore helpers ──────────────────────────────────────────────────────
+
+  DateTime _readDateTime(Object? value, {DateTime? fallback}) {
+    if (value is Timestamp) return value.toDate();
+    if (value is DateTime) return value;
+    return fallback ?? DateTime.now();
+  }
+
+  DateTime? _readNullableDateTime(Object? value) {
+    if (value is Timestamp) return value.toDate();
+    if (value is DateTime) return value;
+    return null;
+  }
+
+  Map<String, dynamic> _readMap(Object? value) {
+    if (value is Map<String, dynamic>) return value;
+    if (value is Map) {
+      return value.map((k, v) => MapEntry(k.toString(), v));
+    }
+    return <String, dynamic>{};
+  }
+
+  // ── Data loading ───────────────────────────────────────────────────────────
 
   @override
   void initState() {
@@ -39,21 +69,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
       if (!userDoc.exists) return;
 
-      final userData = userDoc.data()!;
-      final role = UserRole.fromString(userData['role'] ?? 'customer');
+      final data = userDoc.data()!;
+      final role = UserRole.fromString(data['role'] ?? 'customer');
 
       _userData = app_user.User(
         id: firebaseUser.uid,
-        email: userData['email'] ?? '',
-        phoneNumber: userData['phoneNumber'],
-        displayName: userData['displayName'],
-        photoUrl: userData['photoUrl'],
+        email: data['email'] ?? '',
+        phoneNumber: data['phoneNumber'],
+        displayName: data['displayName'],
+        photoUrl: data['photoUrl'],
         role: role,
-        isProfileComplete: userData['isProfileComplete'] ?? false,
-        createdAt: (userData['createdAt'] as Timestamp).toDate(),
-        updatedAt: userData['updatedAt'] != null
-            ? (userData['updatedAt'] as Timestamp).toDate()
-            : null,
+        isProfileComplete: data['isProfileComplete'] ?? false,
+        createdAt: _readDateTime(
+          data['createdAt'],
+          fallback: firebaseUser.metadata.creationTime,
+        ),
+        updatedAt: _readNullableDateTime(data['updatedAt']),
       );
 
       if (role == UserRole.retailer) {
@@ -67,515 +98,572 @@ class _ProfileScreenState extends State<ProfileScreen> {
       setState(() => _isLoading = false);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error loading profile: ${e.toString()}'),
-            backgroundColor: Colors.red,
-          ),
+          SnackBar(content: Text('Error loading profile: $e')),
         );
       }
     }
   }
 
-  Future<void> _loadRetailerProfile(String userId) async {
+  Future<void> _loadRetailerProfile(String uid) async {
     final doc = await FirebaseFirestore.instance
         .collection(FirestoreCollections.retailers)
-        .doc(userId)
+        .doc(uid)
         .get();
-
-    if (doc.exists) {
-      final data = doc.data()!;
-      final location = data['location'] as Map<String, dynamic>;
-      _retailerProfile = RetailerProfile(
-        userId: data['userId'],
-        ownerName: data['ownerName'],
-        shopName: data['shopName'],
-        shopCategories: List<String>.from(data['shopCategories']),
-        customCategory: data['customCategory'],
-        location: ShopLocation(
-          latitude: location['latitude']?.toDouble() ?? 0.0,
-          longitude: location['longitude']?.toDouble() ?? 0.0,
-          address: location['address'] ?? '',
-          city: location['city'],
-          state: location['state'],
-          pincode: location['pincode'] ?? location['pinCode'],
-        ),
-        gstNumber: data['gstNumber'],
-        businessLicense: data['businessLicense'],
-        createdAt: (data['createdAt'] as Timestamp).toDate(),
-        updatedAt: data['updatedAt'] != null
-            ? (data['updatedAt'] as Timestamp).toDate()
-            : null,
-      );
-    }
+    if (!doc.exists) return;
+    final d = doc.data()!;
+    final loc = _readMap(d['location']);
+    _retailerProfile = RetailerProfile(
+      userId: d['userId'],
+      ownerName: d['ownerName'],
+      shopName: d['shopName'],
+      shopCategories: List<String>.from(d['shopCategories']),
+      customCategory: d['customCategory'],
+      location: ShopLocation(
+        latitude: loc['latitude']?.toDouble() ?? 0.0,
+        longitude: loc['longitude']?.toDouble() ?? 0.0,
+        address: loc['address'] ?? '',
+        city: loc['city'],
+        state: loc['state'],
+        pincode: loc['pincode'] ?? loc['pinCode'],
+      ),
+      gstNumber: d['gstNumber'],
+      businessLicense: d['businessLicense'],
+      createdAt: _readDateTime(d['createdAt']),
+      updatedAt: _readNullableDateTime(d['updatedAt']),
+    );
   }
 
-  Future<void> _loadWholesalerProfile(String userId) async {
+  Future<void> _loadWholesalerProfile(String uid) async {
     final doc = await FirebaseFirestore.instance
         .collection(FirestoreCollections.wholesalers)
-        .doc(userId)
+        .doc(uid)
         .get();
-
-    if (doc.exists) {
-      final data = doc.data()!;
-      final location = data['location'] as Map<String, dynamic>;
-      _wholesalerProfile = WholesalerProfile(
-        userId: data['userId'],
-        ownerName: data['ownerName'],
-        companyName: data['companyName'],
-        businessCategories: List<String>.from(data['businessCategories']),
-        customCategory: data['customCategory'],
-        location: ShopLocation(
-          latitude: location['latitude']?.toDouble() ?? 0.0,
-          longitude: location['longitude']?.toDouble() ?? 0.0,
-          address: location['address'] ?? '',
-          city: location['city'],
-          state: location['state'],
-          pincode: location['pincode'] ?? location['pinCode'],
-        ),
-        gstNumber: data['gstNumber'],
-        panNumber: data['panNumber'],
-        businessLicense: data['businessLicense'],
-        createdAt: (data['createdAt'] as Timestamp).toDate(),
-        updatedAt: data['updatedAt'] != null
-            ? (data['updatedAt'] as Timestamp).toDate()
-            : null,
-      );
-    }
+    if (!doc.exists) return;
+    final d = doc.data()!;
+    final loc = _readMap(d['location']);
+    _wholesalerProfile = WholesalerProfile(
+      userId: d['userId'],
+      ownerName: d['ownerName'],
+      companyName: d['companyName'],
+      businessCategories: List<String>.from(d['businessCategories']),
+      customCategory: d['customCategory'],
+      location: ShopLocation(
+        latitude: loc['latitude']?.toDouble() ?? 0.0,
+        longitude: loc['longitude']?.toDouble() ?? 0.0,
+        address: loc['address'] ?? '',
+        city: loc['city'],
+        state: loc['state'],
+        pincode: loc['pincode'] ?? loc['pinCode'],
+      ),
+      gstNumber: d['gstNumber'],
+      panNumber: d['panNumber'],
+      businessLicense: d['businessLicense'],
+      createdAt: _readDateTime(d['createdAt']),
+      updatedAt: _readNullableDateTime(d['updatedAt']),
+    );
   }
 
-  Future<void> _logout(BuildContext context) async {
+  // ── Logout ─────────────────────────────────────────────────────────────────
+
+  Future<void> _logout() async {
+    if (_isLoggingOut) return;
+    FocusScope.of(context).unfocus();
+    setState(() => _isLoggingOut = true);
     try {
       await FirebaseAuth.instance.signOut();
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Logged out successfully'),
-            backgroundColor: Colors.green,
-          ),
-        );
-      }
     } catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: ${e.toString()}'),
-            backgroundColor: Colors.red,
-          ),
-        );
+      if (mounted) {
+        setState(() => _isLoggingOut = false);
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Error: $e')));
       }
     }
   }
 
-  String _getProfileName() {
+  String _displayName() {
+    if (_userData?.displayName?.isNotEmpty == true) {
+      return _userData!.displayName!;
+    }
     if (_retailerProfile != null) return _retailerProfile!.ownerName;
     if (_wholesalerProfile != null) return _wholesalerProfile!.ownerName;
     return 'User';
   }
 
+  // ── Build ──────────────────────────────────────────────────────────────────
+
   @override
   Widget build(BuildContext context) {
-    final primary = Theme.of(context).colorScheme.primary;
-
     if (_isLoading) {
-      return const Center(child: CircularProgressIndicator());
+      return const Center(
+        child: CircularProgressIndicator(color: AppPalette.forest),
+      );
     }
 
-    return Container(
-      color: const Color(0xFFF5F7FB),
-      child: SingleChildScrollView(
-        physics: const BouncingScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
-        child: Column(
-          children: [
-            _buildProfileHeader(primary),
-            const SizedBox(height: 14),
-            _buildQuickStats(primary),
-            const SizedBox(height: 16),
-            _buildSectionCard(
-              title: 'Contact Information',
-              icon: Icons.contact_phone,
-              children: [
-                if (_userData?.phoneNumber != null)
-                  _buildInfoRow(Icons.phone_iphone, 'Phone', _userData!.phoneNumber!),
-                if (_userData?.email.isNotEmpty ?? false)
-                  _buildInfoRow(Icons.email_outlined, 'Email', _userData!.email),
-              ],
-            ),
-            if (_userData?.role == UserRole.retailer && _retailerProfile != null)
-              _buildRetailerProfileSection(),
-            if (_userData?.role == UserRole.wholesaler && _wholesalerProfile != null)
-              _buildWholesalerProfileSection(),
-            const SizedBox(height: 8),
-            SizedBox(
-              width: double.infinity,
-              height: 54,
-              child: ElevatedButton.icon(
-                onPressed: () => _logout(context),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.red.shade50,
-                  foregroundColor: Colors.red.shade700,
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
-                    side: BorderSide(color: Colors.red.shade200),
-                  ),
-                ),
-                icon: const Icon(Icons.logout_rounded),
-                label: const Text(
-                  'Logout',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildProfileHeader(Color primary) {
-    final roleText = _userData?.role.displayName ?? 'Customer';
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [primary, const Color(0xFF8A7DFF)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(22),
-        boxShadow: [
-          BoxShadow(
-            color: primary.withValues(alpha: 0.28),
-            blurRadius: 24,
-            offset: const Offset(0, 10),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 76,
-            height: 76,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(color: Colors.white70, width: 2),
-              color: Colors.white.withValues(alpha: 0.15),
-            ),
-            child: _userData?.photoUrl != null && _userData!.photoUrl!.isNotEmpty
-                ? ClipOval(
-                    child: Image.network(
-                      _userData!.photoUrl!,
-                      fit: BoxFit.cover,
-                    ),
-                  )
-                : const Icon(Icons.person_rounded, size: 40, color: Colors.white),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  _userData?.displayName ?? _getProfileName(),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 22,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.18),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Text(
-                    roleText,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  _userData?.phoneNumber ?? _userData?.email ?? '',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Colors.white70,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildQuickStats(Color primary) {
-    final profileComplete = _userData?.isProfileComplete == true ? 'Yes' : 'No';
-    final profileType = _userData?.role.displayName ?? 'Customer';
-
-    return Row(
-      children: [
-        Expanded(
-          child: _buildStatTile(
-            title: 'Profile Type',
-            value: profileType,
-            icon: Icons.verified_user_outlined,
-            color: primary,
-          ),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: _buildStatTile(
-            title: 'Completed',
-            value: profileComplete,
-            icon: Icons.task_alt_rounded,
-            color: profileComplete == 'Yes' ? Colors.green : Colors.orange,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildStatTile({
-    required String title,
-    required String value,
-    required IconData icon,
-    required Color color,
-  }) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.black.withValues(alpha: 0.04)),
-      ),
+    return SingleChildScrollView(
+      physics: const BouncingScrollPhysics(),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Icon(icon, size: 18, color: color),
-              const SizedBox(width: 6),
-              Text(
-                title,
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.grey.shade700,
-                  fontWeight: FontWeight.w600,
+          // ── Dark header with menu icon overlaid in top-right corner ────
+          _ProfileHeader(
+            displayName: _displayName(),
+            email: _userData?.email ?? '',
+            photoUrl: _userData?.photoUrl,
+            onMenuPress: widget.onMenuPress,
+          ),
+
+          // ── Scrollable menu sections ───────────────────────────────────
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 20, 16, 28),
+            child: Column(
+              children: [
+                // ACTIVITY
+                _MenuSection(
+                  title: 'ACTIVITY',
+                  items: [
+                    _MenuItem(
+                      icon: Icons.favorite_border_rounded,
+                      label: 'Liked Posts',
+                      badge: 24,
+                      onTap: () {},
+                    ),
+                    _MenuItem(
+                      icon: Icons.bookmark_border_rounded,
+                      label: 'Saved Items',
+                      badge: 12,
+                      onTap: () {},
+                    ),
+                    _MenuItem(
+                      icon: Icons.shopping_bag_outlined,
+                      label: 'My Orders',
+                      badge: 3,
+                      onTap: () {},
+                    ),
+                  ],
                 ),
+                const SizedBox(height: 16),
+
+                // PREFERENCES
+                _MenuSection(
+                  title: 'PREFERENCES',
+                  items: [
+                    _MenuItem(
+                      icon: Icons.settings_outlined,
+                      label: 'Settings',
+                      onTap: () {},
+                    ),
+                    _MenuItem(
+                      icon: Icons.notifications_none_rounded,
+                      label: 'Notifications',
+                      onTap: () {},
+                    ),
+                    _MenuItem(
+                      icon: Icons.credit_card_outlined,
+                      label: 'Payment Methods',
+                      onTap: () {},
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+
+                // SUPPORT
+                _MenuSection(
+                  title: 'SUPPORT',
+                  items: [
+                    _MenuItem(
+                      icon: Icons.help_outline_rounded,
+                      label: 'Help Center',
+                      onTap: () {},
+                    ),
+                    _MenuItem(
+                      icon: Icons.logout_rounded,
+                      label: _isLoggingOut ? 'Signing out…' : 'Sign Out',
+                      isDestructive: true,
+                      onTap: _isLoggingOut ? null : _logout,
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Profile Header ───────────────────────────────────────────────────────────
+
+class _ProfileHeader extends StatelessWidget {
+  const _ProfileHeader({
+    required this.displayName,
+    required this.email,
+    required this.photoUrl,
+    this.onMenuPress,
+  });
+
+  final String displayName;
+  final String email;
+  final String? photoUrl;
+  final VoidCallback? onMenuPress;
+
+  @override
+  Widget build(BuildContext context) {
+    final topPadding = MediaQuery.of(context).padding.top;
+    return Stack(
+      children: [
+        // ── Dark green background panel ──────────────────────────────────
+        Container(
+          width: double.infinity,
+          decoration: const BoxDecoration(
+            color: AppPalette.forestDeep,
+            borderRadius: BorderRadius.only(
+              bottomLeft: Radius.circular(32),
+              bottomRight: Radius.circular(32),
+            ),
+          ),
+          padding: EdgeInsets.fromLTRB(24, topPadding + 12, 24, 32),
+          child: Column(
+            children: [
+              // Avatar
+              _Avatar(photoUrl: photoUrl, displayName: displayName, size: 96),
+              const SizedBox(height: 16),
+
+              // Name
+              Text(
+                displayName,
+                style:
+                    Theme.of(context).textTheme.headlineSmall?.copyWith(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: -0.3,
+                        ),
+              ),
+              const SizedBox(height: 4),
+
+              // Email
+              Text(
+                email,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Colors.white.withValues(alpha: 0.60),
+                    ),
+              ),
+              const SizedBox(height: 24),
+
+              // Stats row
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  _StatItem(value: '127', label: 'Posts'),
+                  _VerticalDivider(),
+                  _StatItem(value: '2.4K', label: 'Followers'),
+                  _VerticalDivider(),
+                  _StatItem(value: '856', label: 'Following'),
+                ],
               ),
             ],
           ),
-          const SizedBox(height: 8),
+        ),
+
+        // ── Menu icon — overlaid on top-right of the header ──────────────
+        if (onMenuPress != null)
+          Positioned(
+            top: topPadding + 4,
+            right: 12,
+            child: Material(
+              color: Colors.white.withValues(alpha: 0.10),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16)),
+              child: InkWell(
+                onTap: onMenuPress,
+                borderRadius: BorderRadius.circular(16),
+                child: const SizedBox(
+                  width: 44,
+                  height: 44,
+                  child: Center(
+                    child: MenuIcon(size: 22, color: Colors.white),
+                  ),
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+// ─── Stat item ────────────────────────────────────────────────────────────────
+
+class _StatItem extends StatelessWidget {
+  const _StatItem({required this.value, required this.label});
+
+  final String value;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Column(
+        children: [
           Text(
             value,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w800,
-            ),
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w800,
+                ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            label,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: Colors.white.withValues(alpha: 0.55),
+                ),
           ),
         ],
       ),
     );
   }
+}
 
-  Widget _buildRetailerProfileSection() {
-    return Column(
-      children: [
-        _buildSectionCard(
-          title: 'Shop Details',
-          icon: Icons.storefront_outlined,
-          children: [
-            _buildInfoRow(Icons.store, 'Shop Name', _retailerProfile!.shopName),
-            _buildInfoRow(Icons.person_outline, 'Owner', _retailerProfile!.ownerName),
-            _buildCategoriesRow('Categories', _retailerProfile!.shopCategories),
-            if (_retailerProfile!.customCategory != null)
-              _buildInfoRow(
-                Icons.category_outlined,
-                'Custom Category',
-                _retailerProfile!.customCategory!,
-              ),
-          ],
-        ),
-        _buildLocationSection(_retailerProfile!.location),
-        if (_retailerProfile!.gstNumber != null ||
-            _retailerProfile!.businessLicense != null)
-          _buildSectionCard(
-            title: 'Business Details',
-            icon: Icons.badge_outlined,
-            children: [
-              if (_retailerProfile!.gstNumber != null)
-                _buildInfoRow(Icons.numbers, 'GST Number', _retailerProfile!.gstNumber!),
-              if (_retailerProfile!.businessLicense != null)
-                _buildInfoRow(Icons.verified_outlined, 'License', _retailerProfile!.businessLicense!),
-            ],
-          ),
-      ],
-    );
-  }
-
-  Widget _buildWholesalerProfileSection() {
-    return Column(
-      children: [
-        _buildSectionCard(
-          title: 'Business Details',
-          icon: Icons.apartment_outlined,
-          children: [
-            if (_wholesalerProfile!.companyName != null)
-              _buildInfoRow(Icons.business, 'Company', _wholesalerProfile!.companyName!),
-            _buildInfoRow(Icons.person_outline, 'Owner', _wholesalerProfile!.ownerName),
-            _buildCategoriesRow('Categories', _wholesalerProfile!.businessCategories),
-            if (_wholesalerProfile!.customCategory != null)
-              _buildInfoRow(
-                Icons.category_outlined,
-                'Custom Category',
-                _wholesalerProfile!.customCategory!,
-              ),
-          ],
-        ),
-        _buildLocationSection(_wholesalerProfile!.location),
-        if (_wholesalerProfile!.gstNumber != null ||
-            _wholesalerProfile!.panNumber != null ||
-            _wholesalerProfile!.businessLicense != null)
-          _buildSectionCard(
-            title: 'Registration Details',
-            icon: Icons.assignment_outlined,
-            children: [
-              if (_wholesalerProfile!.gstNumber != null)
-                _buildInfoRow(Icons.numbers, 'GST Number', _wholesalerProfile!.gstNumber!),
-              if (_wholesalerProfile!.panNumber != null)
-                _buildInfoRow(Icons.credit_card, 'PAN Number', _wholesalerProfile!.panNumber!),
-              if (_wholesalerProfile!.businessLicense != null)
-                _buildInfoRow(Icons.verified_outlined, 'License', _wholesalerProfile!.businessLicense!),
-            ],
-          ),
-      ],
-    );
-  }
-
-  Widget _buildLocationSection(ShopLocation location) {
-    return _buildSectionCard(
-      title: 'Location',
-      icon: Icons.location_on_outlined,
-      children: [
-        _buildInfoRow(Icons.location_on, 'Address', location.address),
-        Row(
-          children: [
-            Expanded(
-              child: _buildInfoRow(
-                Icons.location_city,
-                'City',
-                location.city ?? 'N/A',
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: _buildInfoRow(
-                Icons.map_outlined,
-                'State',
-                location.state ?? 'N/A',
-              ),
-            ),
-          ],
-        ),
-        _buildInfoRow(Icons.pin_drop_outlined, 'PIN Code', location.pincode ?? 'N/A'),
-      ],
-    );
-  }
-
-  Widget _buildSectionCard({
-    required String title,
-    required IconData icon,
-    required List<Widget> children,
-  }) {
+class _VerticalDivider extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
     return Container(
-      width: double.infinity,
-      margin: const EdgeInsets.only(bottom: 14),
-      padding: const EdgeInsets.all(16),
+      width: 1,
+      height: 32,
+      color: Colors.white.withValues(alpha: 0.15),
+    );
+  }
+}
+
+// ─── Avatar ───────────────────────────────────────────────────────────────────
+
+class _Avatar extends StatelessWidget {
+  const _Avatar({
+    required this.photoUrl,
+    required this.displayName,
+    this.size = 68,
+  });
+
+  final String? photoUrl;
+  final String displayName;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: size,
+      height: size,
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.black.withValues(alpha: 0.04)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
+        shape: BoxShape.circle,
+        color: AppPalette.brass.withValues(alpha: 0.85),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(icon, color: const Color(0xFF6C63FF), size: 20),
-              const SizedBox(width: 8),
-              Text(
-                title,
-                style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
+      child: photoUrl != null && photoUrl!.isNotEmpty
+          ? ClipOval(
+              child: Image.network(photoUrl!, fit: BoxFit.cover),
+            )
+          : Center(
+              child: Icon(
+                Icons.person_rounded,
+                color: AppPalette.forestDeep,
+                size: size * 0.50,
               ),
-            ],
+            ),
+    );
+  }
+}
+
+// ─── Menu Section ─────────────────────────────────────────────────────────────
+
+class _MenuSection extends StatelessWidget {
+  const _MenuSection({required this.title, required this.items});
+
+  final String title;
+  final List<_MenuItem> items;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(left: 4, bottom: 10),
+          child: Text(
+            title,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: AppPalette.muted,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.8,
+                  fontSize: 11,
+                ),
           ),
-          const SizedBox(height: 14),
-          ...children,
-        ],
+        ),
+        Container(
+          decoration: BoxDecoration(
+            color: AppPalette.card,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: AppPalette.forest.withValues(alpha: 0.07),
+            ),
+          ),
+          child: Column(
+            children: List.generate(items.length, (i) {
+              final item = items[i];
+              final isLast = i == items.length - 1;
+              return Column(
+                children: [
+                  item,
+                  if (!isLast)
+                    Divider(
+                      height: 1,
+                      indent: 60,
+                      endIndent: 16,
+                      color: AppPalette.forest.withValues(alpha: 0.07),
+                    ),
+                ],
+              );
+            }),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ─── Menu Item ────────────────────────────────────────────────────────────────
+
+class _MenuItem extends StatelessWidget {
+  const _MenuItem({
+    required this.icon,
+    required this.label,
+    this.badge,
+    this.isDestructive = false,
+    this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final int? badge;
+  final bool isDestructive;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = isDestructive ? AppPalette.danger : AppPalette.forest;
+
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(20),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        child: Row(
+          children: [
+            // Icon container
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.09),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(icon, color: color, size: 18),
+            ),
+            const SizedBox(width: 14),
+
+            // Label
+            Expanded(
+              child: Text(
+                label,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
+                      color: isDestructive ? AppPalette.danger : null,
+                    ),
+              ),
+            ),
+
+            // Badge
+            if (badge != null) ...[
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+                decoration: BoxDecoration(
+                  color: AppPalette.brass,
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                  '$badge',
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 11,
+                      ),
+                ),
+              ),
+              const SizedBox(width: 8),
+            ],
+
+            // Chevron
+            Icon(
+              Icons.chevron_right_rounded,
+              color: AppPalette.muted.withValues(alpha: 0.50),
+              size: 20,
+            ),
+          ],
+        ),
       ),
     );
   }
+}
 
-  Widget _buildInfoRow(IconData icon, String label, String value) {
+// ─── Kept helpers (used by retailer/wholesaler sections if needed) ─────────────
+
+class _InfoRow extends StatelessWidget {
+  const _InfoRow({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.only(bottom: 14),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            width: 30,
-            height: 30,
+            width: 32,
+            height: 32,
             decoration: BoxDecoration(
-              color: const Color(0xFF6C63FF).withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(8),
+              color: AppPalette.forest.withValues(alpha: 0.07),
+              borderRadius: BorderRadius.circular(10),
             ),
-            child: Icon(icon, size: 16, color: const Color(0xFF6C63FF)),
+            child: Icon(icon, size: 16, color: AppPalette.forest),
           ),
-          const SizedBox(width: 10),
+          const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   label,
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: Colors.grey.shade600,
-                    fontWeight: FontWeight.w600,
-                  ),
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: AppPalette.muted,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 11,
+                      ),
                 ),
                 const SizedBox(height: 2),
                 Text(
                   value,
-                  style: const TextStyle(
-                    fontSize: 14.5,
-                    fontWeight: FontWeight.w600,
-                    height: 1.25,
-                  ),
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                        height: 1.3,
+                      ),
                 ),
               ],
             ),
@@ -584,57 +672,53 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ),
     );
   }
+}
 
-  Widget _buildCategoriesRow(String label, List<String> categories) {
+class _TagsRow extends StatelessWidget {
+  const _TagsRow({required this.label, required this.tags});
+
+  final String label;
+  final List<String> tags;
+
+  @override
+  Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.only(bottom: 14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Container(
-                width: 30,
-                height: 30,
-                decoration: BoxDecoration(
-                  color: const Color(0xFF6C63FF).withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: const Icon(Icons.category_outlined, size: 16, color: Color(0xFF6C63FF)),
-              ),
-              const SizedBox(width: 10),
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 11,
-                  color: Colors.grey.shade600,
+          Text(
+            label,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: AppPalette.muted,
                   fontWeight: FontWeight.w600,
+                  fontSize: 11,
                 ),
-              ),
-            ],
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 8),
           Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: categories
+            spacing: 7,
+            runSpacing: 7,
+            children: tags
                 .map(
-                  (category) => Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                  (tag) => Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF6C63FF).withValues(alpha: 0.10),
-                      borderRadius: BorderRadius.circular(30),
+                      color: AppPalette.forest.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(999),
                       border: Border.all(
-                        color: const Color(0xFF6C63FF).withValues(alpha: 0.20),
-                      ),
+                          color: AppPalette.forest.withValues(alpha: 0.14)),
                     ),
                     child: Text(
-                      category,
-                      style: const TextStyle(
-                        fontSize: 12.5,
-                        color: Color(0xFF6C63FF),
-                        fontWeight: FontWeight.w700,
-                      ),
+                      tag,
+                      style: Theme.of(context)
+                          .textTheme
+                          .labelSmall
+                          ?.copyWith(
+                            color: AppPalette.forest,
+                            fontWeight: FontWeight.w700,
+                          ),
                     ),
                   ),
                 )

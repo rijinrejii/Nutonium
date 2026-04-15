@@ -6,16 +6,15 @@ import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'firebase_options.dart';
 import 'core/constants/app_constants.dart';
-import 'features/auth/presentation/screens/role_selection_screen.dart';
+import 'core/theme/app_theme.dart';
+import 'features/auth/presentation/screens/universal_auth_screen.dart';
 import 'features/profile/presentation/screens/retailer_profile_setup_screen.dart';
 import 'features/profile/presentation/screens/wholesaler_profile_setup_screen.dart';
-import '../core/presentation/screens/main_navigation_screen.dart';
+import 'core/presentation/screens/main_navigation_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   runApp(const MyApp());
 }
 
@@ -27,14 +26,8 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'Nutonium',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF6C63FF),
-          brightness: Brightness.light,
-        ),
-        useMaterial3: true,
-      ),
-      home: const AuthWrapper(),
+      theme: AppTheme.build(),
+      home: AuthWrapper(),
     );
   }
 }
@@ -58,8 +51,8 @@ class AuthWrapper extends StatelessWidget {
           return ProfileChecker(userId: snapshot.data!.uid);
         }
 
-        // User is not logged in, show role selection
-        return const RoleSelectionScreen();
+        // User is not logged in, show universal auth screen
+        return UniversalAuthScreen();
       },
     );
   }
@@ -110,14 +103,13 @@ class ProfileChecker extends StatelessWidget {
         }
 
         if (!snapshot.hasData || !snapshot.data!.exists) {
-          // User document doesn't exist, sign out
-          firebase_auth.FirebaseAuth.instance.signOut();
-          return const RoleSelectionScreen();
+          return MissingUserProfileRecovery(userId: userId);
         }
 
         final userData = snapshot.data!.data() as Map<String, dynamic>;
         final role = UserRole.fromString(userData['role'] as String);
-        final isProfileComplete = userData['isProfileComplete'] as bool? ?? false;
+        final isProfileComplete =
+            userData['isProfileComplete'] as bool? ?? false;
 
         // If customer or profile is complete, go to main app
         if (role == UserRole.customer || isProfileComplete) {
@@ -133,6 +125,85 @@ class ProfileChecker extends StatelessWidget {
           default:
             return const MainNavigationScreen();
         }
+      },
+    );
+  }
+}
+
+class MissingUserProfileRecovery extends StatelessWidget {
+  const MissingUserProfileRecovery({super.key, required this.userId});
+
+  final String userId;
+
+  Future<void> _recoverUserProfile() async {
+    final user = firebase_auth.FirebaseAuth.instance.currentUser;
+    if (user == null || user.uid != userId) {
+      throw StateError('No authenticated user is available for recovery.');
+    }
+
+    await FirebaseFirestore.instance
+        .collection(FirestoreCollections.users)
+        .doc(userId)
+        .set({
+      'id': user.uid,
+      'email': user.email ?? '',
+      'displayName': user.displayName ?? '',
+      'photoUrl': user.photoURL ?? '',
+      'phoneNumber': user.phoneNumber ?? '',
+      'role': UserRole.customer.value,
+      'isProfileComplete': true,
+      'createdAt': FieldValue.serverTimestamp(),
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<void>(
+      future: _recoverUserProfile(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState != ConnectionState.done) {
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
+        }
+
+        if (snapshot.hasError) {
+          return Scaffold(
+            body: Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.error_outline,
+                        size: 64, color: Colors.red),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Account recovery failed',
+                      style: Theme.of(context).textTheme.titleLarge,
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'The account exists, but the profile record could not be restored.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: Colors.grey[600]),
+                    ),
+                    const SizedBox(height: 16),
+                    ElevatedButton(
+                      onPressed: () async {
+                        await firebase_auth.FirebaseAuth.instance.signOut();
+                      },
+                      child: const Text('Back to sign in'),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        }
+
+        return const MainNavigationScreen();
       },
     );
   }

@@ -28,7 +28,7 @@ class _WholesalerProfileSetupScreenState
 
   bool _isLoading = false;
   final List<String> _selectedCategories = [];
-  
+
   final List<String> _availableCategories = [
     'Food & Beverage',
     'Electronics & Appliances',
@@ -64,7 +64,8 @@ class _WholesalerProfileSetupScreenState
     if (_selectedCategories.isEmpty && _customCategoryController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Please select at least one category or add a custom category'),
+          content: Text(
+              'Please select at least one category or add a custom category'),
           backgroundColor: Colors.orange,
         ),
       );
@@ -122,7 +123,7 @@ class _WholesalerProfileSetupScreenState
 
       if (mounted) {
         setState(() => _isLoading = false);
-        
+
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Profile created successfully!'),
@@ -149,7 +150,7 @@ class _WholesalerProfileSetupScreenState
 
   // Handle back button press - show confirmation dialog
   Future<bool> _onWillPop() async {
-    final shouldPop = await showDialog<bool>(
+    final shouldLogout = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Incomplete Profile'),
@@ -162,13 +163,7 @@ class _WholesalerProfileSetupScreenState
             child: const Text('Continue Setup'),
           ),
           TextButton(
-            onPressed: () async {
-              // Sign out user
-              await FirebaseAuth.instance.signOut();
-              if (context.mounted) {
-                Navigator.of(context).pop(true);
-              }
-            },
+            onPressed: () => Navigator.of(context).pop(true),
             child: const Text(
               'Logout',
               style: TextStyle(color: Colors.red),
@@ -177,19 +172,21 @@ class _WholesalerProfileSetupScreenState
         ],
       ),
     );
-    return shouldPop ?? false;
+
+    if (shouldLogout == true) {
+      await FirebaseAuth.instance.signOut();
+    }
+
+    return false;
   }
 
   @override
   Widget build(BuildContext context) {
     return PopScope(
       canPop: false,
-      onPopInvoked: (didPop) async {
+      onPopInvokedWithResult: (didPop, _) async {
         if (!didPop) {
-          final shouldPop = await _onWillPop();
-          if (shouldPop && context.mounted) {
-            Navigator.of(context).pop();
-          }
+          await _onWillPop();
         }
       },
       child: Scaffold(
@@ -298,7 +295,10 @@ class _WholesalerProfileSetupScreenState
                         }
                       });
                     },
-                    selectedColor: Theme.of(context).colorScheme.primary.withOpacity(0.2),
+                    selectedColor:
+                        Theme.of(context).colorScheme.primary.withValues(
+                              alpha: 0.2,
+                            ),
                     checkmarkColor: Theme.of(context).colorScheme.primary,
                   );
                 }).toList(),
@@ -459,7 +459,8 @@ class _WholesalerProfileSetupScreenState
                           width: 24,
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                            valueColor:
+                                AlwaysStoppedAnimation<Color>(Colors.white),
                           ),
                         )
                       : const Text(

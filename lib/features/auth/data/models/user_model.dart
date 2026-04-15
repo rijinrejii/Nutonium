@@ -40,10 +40,8 @@ class UserModel extends User {
       photoUrl: json['photoUrl'] as String?,
       role: UserRole.fromString(json['role'] as String),
       isProfileComplete: json['isProfileComplete'] as bool? ?? false,
-      createdAt: (json['createdAt'] as Timestamp).toDate(),
-      updatedAt: json['updatedAt'] != null
-          ? (json['updatedAt'] as Timestamp).toDate()
-          : null,
+      createdAt: _readDateTime(json['createdAt']),
+      updatedAt: _readNullableDateTime(json['updatedAt']),
     );
   }
 
@@ -73,5 +71,25 @@ class UserModel extends User {
       createdAt: createdAt,
       updatedAt: updatedAt,
     );
+  }
+
+  static DateTime _readDateTime(Object? value) {
+    if (value is Timestamp) {
+      return value.toDate();
+    }
+    if (value is DateTime) {
+      return value;
+    }
+    return DateTime.now();
+  }
+
+  static DateTime? _readNullableDateTime(Object? value) {
+    if (value is Timestamp) {
+      return value.toDate();
+    }
+    if (value is DateTime) {
+      return value;
+    }
+    return null;
   }
 }

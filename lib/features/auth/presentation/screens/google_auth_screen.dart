@@ -5,6 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../../core/constants/app_constants.dart';
+import '../../../../core/theme/app_theme.dart';
 
 class GoogleAuthScreen extends StatefulWidget {
   const GoogleAuthScreen({super.key});
@@ -191,8 +192,8 @@ class _GoogleAuthScreenState extends State<GoogleAuthScreen> {
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: [
-              Theme.of(context).colorScheme.primary.withOpacity(0.1),
-              Theme.of(context).colorScheme.secondary.withOpacity(0.1),
+              AppPalette.parchment,
+              AppPalette.canvas,
             ],
           ),
         ),
@@ -207,14 +208,14 @@ class _GoogleAuthScreenState extends State<GoogleAuthScreen> {
                   Container(
                     width: 100,
                     height: 100,
-                    decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                    decoration: const BoxDecoration(
+                      color: AppPalette.canvas,
                       shape: BoxShape.circle,
                     ),
                     child: Icon(
                       Icons.shopping_bag,
                       size: 50,
-                      color: Theme.of(context).colorScheme.primary,
+                      color: AppPalette.forest,
                     ),
                   ),
                   const SizedBox(height: 32),
@@ -224,7 +225,7 @@ class _GoogleAuthScreenState extends State<GoogleAuthScreen> {
                     'Customer Sign In',
                     style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                           fontWeight: FontWeight.bold,
-                          color: Theme.of(context).colorScheme.primary,
+                          color: AppPalette.forest,
                         ),
                     textAlign: TextAlign.center,
                   ),
@@ -249,12 +250,12 @@ class _GoogleAuthScreenState extends State<GoogleAuthScreen> {
                       onPressed: _isLoading ? null : _signInWithGoogle,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.white,
-                        foregroundColor: Colors.grey[800],
+                        foregroundColor: AppPalette.ink,
                         disabledBackgroundColor: Colors.grey[200],
                         disabledForegroundColor: Colors.grey[600],
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          side: BorderSide(color: Colors.grey[300]!),
+                          borderRadius: BorderRadius.circular(20),
+                          side: BorderSide(color: AppPalette.forest.withValues(alpha: 0.2)),
                         ),
                         elevation: _isLoading ? 0 : 2,
                       ),
@@ -274,7 +275,7 @@ class _GoogleAuthScreenState extends State<GoogleAuthScreen> {
                                 return Icon(
                                   Icons.g_mobiledata,
                                   size: 32,
-                                  color: Theme.of(context).colorScheme.primary,
+                                  color: AppPalette.forest,
                                 );
                               },
                             ),
@@ -297,8 +298,8 @@ class _GoogleAuthScreenState extends State<GoogleAuthScreen> {
                         vertical: 12,
                       ),
                       decoration: BoxDecoration(
-                        color: Colors.blue[50],
-                        borderRadius: BorderRadius.circular(8),
+                        color: AppPalette.canvas,
+                        borderRadius: BorderRadius.circular(14),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
@@ -318,7 +319,7 @@ class _GoogleAuthScreenState extends State<GoogleAuthScreen> {
                             child: Text(
                               _loadingMessage,
                               style: TextStyle(
-                                color: Colors.blue[900],
+                                color: AppPalette.forest,
                                 fontSize: 14,
                               ),
                             ),
@@ -335,14 +336,14 @@ class _GoogleAuthScreenState extends State<GoogleAuthScreen> {
                     Container(
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        color: Colors.blue[50],
-                        borderRadius: BorderRadius.circular(12),
+                        color: AppPalette.canvas,
+                        borderRadius: BorderRadius.circular(14),
                       ),
                       child: Row(
                         children: [
                           Icon(
                             Icons.info_outline,
-                            color: Colors.blue[700],
+                            color: AppPalette.forest,
                             size: 24,
                           ),
                           const SizedBox(width: 12),
@@ -350,7 +351,7 @@ class _GoogleAuthScreenState extends State<GoogleAuthScreen> {
                             child: Text(
                               'As a customer, you can start shopping immediately after signing in',
                               style: TextStyle(
-                                color: Colors.blue[900],
+                                color: AppPalette.forest,
                                 fontSize: 13,
                               ),
                             ),
